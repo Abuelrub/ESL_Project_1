@@ -17,22 +17,15 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  // TEACHER ASSIGNMENT GATE
-  const { data: courseInfo } = await admin
-    .from("courses").select("active_unit_id, active_part").eq("id", unit.course_id).single();
-  if (courseInfo?.active_unit_id) {
-    const { data: activeUnit } = await admin
-      .from("units").select("id, order_index").eq("id", courseInfo.active_unit_id).single();
-    if (activeUnit && unit.order_index > activeUnit.order_index) {
-      return NextResponse.json({ error: "This unit is not assigned yet" }, { status: 403 });
-    }
-    if (activeUnit && unit.id === activeUnit.id) {
-      const { data: wordCheck } = await admin
-        .from("words").select("part").eq("id", word_id).single();
-      if (((wordCheck?.part ?? 1)) > (courseInfo.active_part ?? 1)) {
-        return NextResponse.json({ error: "This word is in Part 2 — not assigned yet" }, { status: 403 });
-      }
-    }
+  // TEACHER ASSIGNMENT GATE (per-part)
+  const { data: fullUnit } = await admin
+    .from("units").select("part1_assigned, part2_assigned").eq("id", unit.id).single();
+  const { data: wordCheck } = await admin
+    .from("words").select("part").eq("id", word_id).single();
+  const wPart = wordCheck?.part ?? 1;
+  const isAssigned = wPart === 1 ? fullUnit?.part1_assigned : fullUnit?.part2_assigned;
+  if (!isAssigned) {
+    return NextResponse.json({ error: "This part is not assigned yet by your teacher" }, { status: 403 });
   }
 
   const [{ data: session, error }, { data: word }, { data: prog }] = await Promise.all([

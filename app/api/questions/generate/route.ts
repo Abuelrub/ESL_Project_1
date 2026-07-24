@@ -33,12 +33,9 @@ export async function POST(request: Request) {
     .eq("session_id", session_id)
     .order("created_at");
 
-  // Course settings: quiz length + teacher's current assignment
+  // Course settings: quiz length
   const { data: course } = await admin
-    .from("courses")
-    .select("id, active_unit_id, active_part, quiz_questions")
-    .eq("id", session.course_id)
-    .single();
+    .from("courses").select("id, quiz_questions").eq("id", session.course_id).single();
   const quizLength = course?.quiz_questions ?? DEFAULT_QUIZ_QUESTIONS;
 
   const asked = askedRows ?? [];
@@ -64,19 +61,18 @@ export async function POST(request: Request) {
     else break;
   }
 
-  // ---------- WORD POOL: current unit + all earlier units ----------
+  // ---------- WORD POOL: current unit + all earlier units, honoring per-part assignments ----------
   const { data: units } = await admin
     .from("units")
-    .select("id, order_index")
+    .select("id, order_index, part1_assigned, part2_assigned")
     .eq("course_id", session.course_id)
     .order("order_index");
 
   const currentUnit = (units ?? []).find((u) => u.id === session.unit_id);
   if (!currentUnit) return NextResponse.json({ error: "Unit missing" }, { status: 404 });
 
-  // TEACHER ASSIGNMENT GATE: students cannot go past the assigned unit
-  const activeUnit = (units ?? []).find((u) => u.id === course?.active_unit_id);
-  if (activeUnit && currentUnit.order_index > activeUnit.order_index) {
+  // The current unit must have at least one part assigned
+  if (!currentUnit.part1_assigned && !currentUnit.part2_assigned) {
     return NextResponse.json(
       { error: "This unit is not assigned yet by your teacher" }, { status: 403 });
   }
@@ -84,21 +80,23 @@ export async function POST(request: Request) {
   const allowedUnitIds = (units ?? [])
     .filter((u) => u.order_index <= currentUnit.order_index)
     .map((u) => u.id);
+  const unitById = new Map((units ?? []).map((u) => [u.id, u]));
 
   const { data: allWords } = await admin
     .from("words")
     .select("id, text, difficulty, unit_id, part")
     .in("unit_id", allowedUnitIds);
 
-  // PART GATE: inside the assigned unit only parts up to the assigned part count
-  const words = (allWords ?? []).filter((w) =>
-    activeUnit && w.unit_id === activeUnit.id
-      ? (w.part ?? 1) <= (course?.active_part ?? 1)
-      : true
-  );
+  // PART GATE: for each unit, include only parts that are currently assigned
+  const words = (allWords ?? []).filter((w) => {
+    const u = unitById.get(w.unit_id);
+    if (!u) return false;
+    const p = w.part ?? 1;
+    return p === 1 ? !!u.part1_assigned : !!u.part2_assigned;
+  });
 
   if (words.length === 0) {
-    return NextResponse.json({ error: "This unit has no words yet" }, { status: 400 });
+    return NextResponse.json({ error: "No assigned words yet in this unit" }, { status: 400 });
   }
 
   const { data: progress } = await admin

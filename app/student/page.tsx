@@ -12,7 +12,7 @@ export default async function StudentHome() {
   const [{ data: enrollments }, { data: progress }, { data: sessions }] = await Promise.all([
     supabase
       .from("enrollments")
-      .select("classes(id, name, courses(id, name, active_unit_id, active_part, units!units_course_id_fkey(id, name, order_index, words(id))))")
+      .select("classes(id, name, courses(id, name, units!units_course_id_fkey(id, name, order_index, part1_name, part2_name, part1_assigned, part2_assigned, words(id, part))))")
       .eq("student_id", profile.id),
     supabase
       .from("word_progress")
@@ -70,9 +70,6 @@ export default async function StudentHome() {
       {classes.length > 0 ? (
         classes.map((cls) =>
           (cls!.courses ?? []).map((course) => {
-            const activeUnit = (course.units ?? []).find(
-              (u) => u.id === (course as { active_unit_id?: string }).active_unit_id
-            );
             return (
             <section key={course.id} className="mb-4">
               <h2 className="mb-2 px-1 text-lg font-bold">📚 {course.name}</h2>
@@ -80,9 +77,21 @@ export default async function StudentHome() {
                 {[...(course.units ?? [])]
                   .sort((a, b) => a.order_index - b.order_index)
                   .map((unit) => {
-                    const locked = !!activeUnit && unit.order_index > activeUnit.order_index;
-                    const isAssigned = !!activeUnit && unit.id === activeUnit.id;
-                    const wordIds = ((unit.words ?? []) as { id: string }[]).map((w) => w.id);
+                    const u = unit as unknown as {
+                      part1_assigned?: boolean; part2_assigned?: boolean;
+                      part1_name?: string; part2_name?: string;
+                    };
+                    const partsAssigned: string[] = [];
+                    if (u.part1_assigned) partsAssigned.push(u.part1_name ?? "Part 1");
+                    if (u.part2_assigned) partsAssigned.push(u.part2_name ?? "Part 2");
+                    const locked = partsAssigned.length === 0;
+                    const isAssigned = partsAssigned.length > 0;
+                    const wordIds = ((unit.words ?? []) as { id: string; part?: number }[])
+                      .filter((w) => {
+                        const p = w.part ?? 1;
+                        return p === 1 ? u.part1_assigned : u.part2_assigned;
+                      })
+                      .map((w) => w.id);
                     const practiced = wordIds.filter((id) => progressMap.has(id)).length;
                     const masteredHere = wordIds.filter(
                       (id) => (progressMap.get(id) ?? 0) >= MASTERY_COUNT
@@ -98,7 +107,7 @@ export default async function StudentHome() {
                             {locked && "🔒 "}{unit.name}
                             {isAssigned && (
                               <span className="ml-1.5 rounded-full bg-brand-100 px-2 py-0.5 text-xs font-bold text-brand-700">
-                                📌 Now · Part {(course as { active_part?: number }).active_part ?? 1}
+                                📌 {partsAssigned.join(" · ")}
                               </span>
                             )}
                           </p>

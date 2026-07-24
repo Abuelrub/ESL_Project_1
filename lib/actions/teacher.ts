@@ -134,23 +134,53 @@ export async function moveWordPart(formData: FormData) {
   back(courseId);
 }
 
-// ---------- SET THE CURRENT ASSIGNMENT (unit + part) ----------
-export async function assignPart(formData: FormData) {
+// ---------- TOGGLE ASSIGNMENT FOR ONE PART ----------
+export async function togglePartAssigned(formData: FormData) {
   await requireProfile("teacher");
   const supabase = await createClient();
 
   const courseId = String(formData.get("course_id") || "");
   const unitId = String(formData.get("unit_id") || "");
   const part = Number(formData.get("part")) === 2 ? 2 : 1;
+  const currentlyAssigned = formData.get("assigned") === "true";
+  const column = part === 1 ? "part1_assigned" : "part2_assigned";
 
   const { error } = await supabase
-    .from("courses")
-    .update({ active_unit_id: unitId, active_part: part })
-    .eq("id", courseId);
+    .from("units").update({ [column]: !currentlyAssigned }).eq("id", unitId);
 
   back(courseId, error
-    ? `Could not set assignment: ${error.message} — did you run migration_parts_assignment.sql?`
-    : `📌 Assignment updated: students now work up to Part ${part} of this unit.`);
+    ? `Could not update: ${error.message} — did you run migration_multi_assign_names.sql?`
+    : (!currentlyAssigned
+        ? "📌 Assigned — students can now practice this part."
+        : "Unassigned — students can no longer practice this part."));
+}
+
+// ---------- RENAME A UNIT ----------
+export async function renameUnit(formData: FormData) {
+  await requireProfile("teacher");
+  const supabase = await createClient();
+  const courseId = String(formData.get("course_id") || "");
+  const unitId = String(formData.get("unit_id") || "");
+  const name = String(formData.get("name") || "").trim();
+  if (!name) back(courseId, "Enter a name.");
+  const { error } = await supabase.from("units").update({ name }).eq("id", unitId);
+  back(courseId, error ? `Could not rename: ${error.message}` : "Unit renamed.");
+}
+
+// ---------- RENAME A PART LABEL ----------
+export async function renamePart(formData: FormData) {
+  await requireProfile("teacher");
+  const supabase = await createClient();
+  const courseId = String(formData.get("course_id") || "");
+  const unitId = String(formData.get("unit_id") || "");
+  const part = Number(formData.get("part")) === 2 ? 2 : 1;
+  const name = String(formData.get("name") || "").trim();
+  if (!name) back(courseId, "Enter a name.");
+  const column = part === 1 ? "part1_name" : "part2_name";
+  const { error } = await supabase.from("units").update({ [column]: name }).eq("id", unitId);
+  back(courseId, error
+    ? `Could not rename: ${error.message} — did you run migration_multi_assign_names.sql?`
+    : "Part renamed.");
 }
 
 // ---------- SET QUIZ LENGTH ----------

@@ -28,19 +28,17 @@ export default async function WordPickerPage({
 
   const { data: unit } = await supabase
     .from("units")
-    .select("id, name, order_index, course_id, words(id, text, difficulty, part)")
+    .select("id, name, order_index, course_id, part1_name, part2_name, part1_assigned, part2_assigned, words(id, text, difficulty, part)")
     .eq("id", unitId).single();
   if (!unit) notFound();
 
-  const { data: course } = await supabase
-    .from("courses")
-    .select("id, active_unit_id, active_part, units!units_course_id_fkey(id, order_index)")
-    .eq("id", unit.course_id).single();
-
-  const activeUnit = (course?.units ?? []).find((u) => u.id === course?.active_unit_id);
-  const unitLocked = !!activeUnit && unit.order_index > activeUnit.order_index;
-  const partLimit =
-    activeUnit && unit.id === activeUnit.id ? (course?.active_part ?? 1) : 2;
+  const u = unit as unknown as {
+    part1_name?: string; part2_name?: string;
+    part1_assigned?: boolean; part2_assigned?: boolean;
+  };
+  const part1Ok = !!u.part1_assigned;
+  const part2Ok = !!u.part2_assigned;
+  const unitLocked = !part1Ok && !part2Ok;
 
   if (unitLocked) {
     return (
@@ -56,8 +54,14 @@ export default async function WordPickerPage({
   }
 
   const allWords = (unit.words ?? []) as { id: string; text: string; difficulty: string; part?: number }[];
-  const wordList = allWords.filter((w) => (w.part ?? 1) <= partLimit);
-  const lockedWords = allWords.filter((w) => (w.part ?? 1) > partLimit);
+  const wordList = allWords.filter((w) => {
+    const p = w.part ?? 1;
+    return p === 1 ? part1Ok : part2Ok;
+  });
+  const lockedWords = allWords.filter((w) => {
+    const p = w.part ?? 1;
+    return p === 1 ? !part1Ok : !part2Ok;
+  });
 
   const { data: progress } = await supabase
     .from("word_progress")
@@ -149,7 +153,7 @@ export default async function WordPickerPage({
 
       {lockedWords.length > 0 && (
         <p className="mb-3 rounded-xl bg-gray-50 px-4 py-2.5 text-sm text-gray-500">
-          🔒 Part 2 ({lockedWords.length} words) opens when your teacher assigns it.
+          🔒 {lockedWords.length} more word(s) will unlock when your teacher assigns them.
         </p>
       )}
 

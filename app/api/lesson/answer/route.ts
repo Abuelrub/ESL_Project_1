@@ -31,8 +31,13 @@ export async function POST(request: Request) {
   const wordText = wordRow?.text ?? "";
   const data = q.question_data as Record<string, unknown>;
 
+  // Get student first name for warmer feedback
+  const { data: student } = await admin
+    .from("profiles").select("full_name").eq("id", user.id).single();
+  const firstName = (student?.full_name ?? "").split(" ")[0];
+
   const attemptNumber = (q.attempts ?? 0) + 1;
-  const graded = await gradeAnswer(q.question_type, data, answer, wordText);
+  const graded = await gradeAnswer(q.question_type, data, answer, wordText, firstName);
 
   // ---------- WRONG but retries remain: re-teach and let them try again ----------
   if (!graded.isCorrect && attemptNumber < MAX_ATTEMPTS) {
@@ -43,9 +48,14 @@ export async function POST(request: Request) {
     return NextResponse.json({
       retry: true,
       attempts_left: MAX_ATTEMPTS - attemptNumber,
-      teach:
-        graded.feedback ||
-        `Not quite. Remember what "${wordText}" means and try again!`,
+      teach: graded.feedback || `Not quite. Remember what "${wordText}" means and try again!`,
+      mistake: graded.mistake,
+      suggestion: graded.suggestion,
+      why_right: graded.whyRight,
+      why_wrong: graded.whyWrong,
+      extra_example: graded.extraExample,
+      improved: graded.improved,
+      correct_display: graded.correctDisplay,
     });
   }
 
@@ -103,5 +113,11 @@ export async function POST(request: Request) {
     first_try: firstTryCorrect,
     correct_display: graded.correctDisplay,
     feedback: graded.feedback,
+    mistake: graded.mistake,
+    suggestion: graded.suggestion,
+    why_right: graded.whyRight,
+    why_wrong: graded.whyWrong,
+    extra_example: graded.extraExample,
+    improved: graded.improved,
   });
 }

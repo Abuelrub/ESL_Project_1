@@ -28,6 +28,8 @@ interface Result {
   is_correct: boolean;
   correct_display: string;
   feedback: string;
+  mistake?: string; suggestion?: string; improved?: string;
+  why_right?: string; why_wrong?: string; extra_example?: string;
 }
 
 type Phase = "starting" | "loading" | "question" | "checking" | "feedback" | "done" | "error";
@@ -423,23 +425,44 @@ export default function PracticeClient({
 
         {inFeedback && result && (
           <div className={
-            "mt-4 rounded-2xl p-4 " + (result.is_correct ? "bg-green-50" : "bg-orange-50")
+            "mt-4 rounded-2xl p-4 space-y-2 " +
+            (result.is_correct ? "bg-green-50" : "bg-orange-50")
           }>
             <p className={
               "font-bold " + (result.is_correct ? "text-green-700" : "text-orange-700")
             }>
-              {result.is_correct ? "✅ Correct! Great job!" : "❌ Not quite!"}
+              {result.is_correct ? "✅ Correct! Great job!" : "Not quite — let\'s learn together!"}
             </p>
-            {!result.is_correct && result.correct_display && (
-              <p className="mt-1 text-sm text-orange-700">
-                Correct answer: <span className="font-semibold">{result.correct_display}</span>
-              </p>
-            )}
             {result.feedback && (
               <p className={
-                "mt-1 text-sm " + (result.is_correct ? "text-green-700" : "text-orange-700")
-              }>
-                {result.feedback}
+                "text-sm " + (result.is_correct ? "text-green-700" : "text-orange-800")
+              }>{result.feedback}</p>
+            )}
+            {!result.is_correct && result.correct_display && (
+              <p className="text-sm text-orange-800">
+                <b>Correct answer:</b> {result.correct_display}
+              </p>
+            )}
+            {result.why_wrong && (
+              <p className="text-sm text-orange-800"><b>What went wrong:</b> {result.why_wrong}</p>
+            )}
+            {result.why_right && (
+              <p className="text-sm text-orange-800"><b>Why it\'s right:</b> {result.why_right}</p>
+            )}
+            {result.mistake && (
+              <p className="text-sm text-orange-800"><b>Notice:</b> {result.mistake}</p>
+            )}
+            {result.improved && (
+              <p className="text-sm text-orange-800">
+                <b>Better sentence:</b> <i>{result.improved}</i>
+              </p>
+            )}
+            {result.suggestion && (
+              <p className="text-sm text-orange-800"><b>Tip:</b> {result.suggestion}</p>
+            )}
+            {result.extra_example && (
+              <p className="text-sm text-orange-800">
+                <b>Another example:</b> {result.extra_example}
               </p>
             )}
           </div>

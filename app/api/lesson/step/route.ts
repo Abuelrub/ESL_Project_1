@@ -37,8 +37,17 @@ export async function POST(request: Request) {
   const level = prog?.current_level ?? startingLevel(word.difficulty as "easy" | "hard");
 
   let type: QuestionType;
-  if (step === 3) type = Math.random() < 0.5 ? "true_false" : "multiple_choice";
-  else if (step === 4) type = "fill_blank";
+  if (step === 3) {
+    // Alternate between true_false and multiple_choice across visits so both
+    // formats are guaranteed to appear during practice
+    const { count: tfCount } = await admin
+      .from("questions").select("*", { count: "exact", head: true })
+      .eq("student_id", user.id).eq("word_id", word_id).eq("question_type", "true_false");
+    const { count: mcCount } = await admin
+      .from("questions").select("*", { count: "exact", head: true })
+      .eq("student_id", user.id).eq("word_id", word_id).eq("question_type", "multiple_choice");
+    type = (tfCount ?? 0) <= (mcCount ?? 0) ? "true_false" : "multiple_choice";
+  } else if (step === 4) type = "fill_blank";
   else if (step === 5) type = "write_sentence";
   else return NextResponse.json({ error: "Bad step" }, { status: 400 });
 

@@ -37,7 +37,9 @@ export function startingLevel(difficulty: "easy" | "hard") {
 //   3+ correct in a row -> stays at the hard level (+2, capped)
 //   a wrong answer resets the streak -> back to base
 export function streakBonus(streak: number) {
-  return Math.min(2, Math.max(0, streak));
+  // Small bump only: +1 after 2+ correct in a row.
+  // Reaching level 5 (write_sentence) requires the WORD\'s own base level to be 4+.
+  return streak >= 2 ? 1 : 0;
 }
 
 export function effectiveLevel(baseLevel: number, streak: number) {
@@ -45,12 +47,13 @@ export function effectiveLevel(baseLevel: number, streak: number) {
 }
 
 // Which question types fit each level (picked randomly among them)
+// Each level has a diverse pool; picked at random for variety
 const TYPES_BY_LEVEL: Record<number, QuestionType[]> = {
-  1: ["true_false", "multiple_choice"],
-  2: ["multiple_choice", "true_false"],
-  3: ["fill_blank", "sentence_completion", "matching"],
-  4: ["multi_select", "matching", "fill_blank", "sentence_completion"],
-  5: ["write_sentence"],
+  1: ["true_false", "multiple_choice", "true_false", "multiple_choice", "fill_blank"],
+  2: ["multiple_choice", "true_false", "fill_blank", "sentence_completion", "true_false"],
+  3: ["fill_blank", "sentence_completion", "matching", "true_false", "multiple_choice"],
+  4: ["multi_select", "matching", "fill_blank", "sentence_completion", "true_false"],
+  5: ["write_sentence", "multi_select", "matching", "fill_blank"], // still mixed
 };
 
 export function pickQuestionType(level: number): QuestionType {

@@ -23,14 +23,24 @@ export async function POST(request: Request) {
     .from("words").select("id, text").eq("id", word_id).single();
   if (!word) return NextResponse.json({ error: "Word not found" }, { status: 404 });
 
+  // Try the cache first — same lesson content is reused across students (big speed win)
+  const { data: cached } = await admin
+    .from("word_content").select("content").eq("word_id", word.id).maybeSingle();
+
   let content;
-  try {
-    content = await generateLessonContent(word.text);
-  } catch {
-    return NextResponse.json({ error: "AI could not create the lesson, try again" }, { status: 502 });
+  if (cached?.content) {
+    content = cached.content;
+  } else {
+    try {
+      content = await generateLessonContent(word.text);
+    } catch {
+      return NextResponse.json({ error: "AI could not create the lesson, try again" }, { status: 502 });
+    }
+    // Save for next student (fire-and-forget)
+    admin.from("word_content").upsert({ word_id: word.id, content }).then(() => {});
   }
 
-  // Record the teaching content for research (what the AI taught, when)
+  // Record that this student was taught (research signal)
   await admin.from("questions").insert({
     session_id,
     student_id: user.id,

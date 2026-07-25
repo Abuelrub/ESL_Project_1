@@ -47,6 +47,12 @@ export default function LessonClient({
   const [teach, setTeach] = useState<string | null>(null);
   const [finalResult, setFinalResult] = useState<{
     is_correct: boolean; correct_display: string; feedback: string;
+    mistake?: string; suggestion?: string; why_right?: string; why_wrong?: string;
+    extra_example?: string; improved?: string;
+  } | null>(null);
+  const [teachExtras, setTeachExtras] = useState<{
+    mistake?: string; suggestion?: string; why_right?: string;
+    extra_example?: string; correct_display?: string;
   } | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [practicesEarned, setPracticesEarned] = useState(0);
@@ -73,7 +79,7 @@ export default function LessonClient({
   const loadStepQuestion = useCallback(async (sid: string, stepNum: number) => {
     setScreen("loading");
     setSelected(null); setSelectedWord(null); setWritten("");
-    setShowHint(false); setTeach(null); setFinalResult(null);
+    setShowHint(false); setTeach(null); setFinalResult(null); setTeachExtras(null);
     try {
       const res = await fetch("/api/lesson/step", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -155,6 +161,11 @@ export default function LessonClient({
 
       if (data.retry) {
         setTeach(data.teach);
+        setTeachExtras({
+          mistake: data.mistake, suggestion: data.suggestion,
+          why_right: data.why_right, extra_example: data.extra_example,
+          correct_display: data.correct_display,
+        });
         setSelected(null); setSelectedWord(null);
         setScreen("check");
       } else {
@@ -389,9 +400,18 @@ export default function LessonClient({
             )}
 
             {teach && screen !== "feedback" && (
-              <div className="mt-4 rounded-2xl bg-orange-50 p-4">
+              <div className="mt-4 rounded-2xl bg-orange-50 p-4 space-y-2">
                 <p className="text-sm font-bold text-orange-700">Let&apos;s learn it again 🧡</p>
-                <p className="mt-1 text-sm text-orange-700">{teach}</p>
+                <p className="text-sm text-orange-700">{teach}</p>
+                {teachExtras?.mistake && (
+                  <p className="text-sm text-orange-800"><b>What happened:</b> {teachExtras.mistake}</p>
+                )}
+                {teachExtras?.suggestion && (
+                  <p className="text-sm text-orange-800"><b>Try this:</b> {teachExtras.suggestion}</p>
+                )}
+                {teachExtras?.extra_example && (
+                  <p className="text-sm text-orange-800"><b>Example:</b> {teachExtras.extra_example}</p>
+                )}
               </div>
             )}
 
@@ -412,24 +432,55 @@ export default function LessonClient({
 
             {screen === "feedback" && finalResult && (
               <div className={
-                "mt-4 rounded-2xl p-4 " + (finalResult.is_correct ? "bg-green-50" : "bg-orange-50")
+                "mt-4 rounded-2xl p-4 space-y-2 " +
+                (finalResult.is_correct ? "bg-green-50" : "bg-orange-50")
               }>
                 <p className={
                   "font-bold " + (finalResult.is_correct ? "text-green-700" : "text-orange-700")
                 }>
-                  {finalResult.is_correct ? "✅ Correct! Great job!" : "Keep going — you'll get it! 💪"}
+                  {finalResult.is_correct ? "✅ Correct! Great job!" : "Not quite — that\'s okay! 💪"}
                 </p>
-                {!finalResult.is_correct && finalResult.correct_display && (
-                  <p className="mt-1 text-sm text-orange-700">
-                    The answer was: <b>{finalResult.correct_display}</b>
-                  </p>
-                )}
                 {finalResult.feedback && (
                   <p className={
-                    "mt-1 text-sm " +
-                    (finalResult.is_correct ? "text-green-700" : "text-orange-700")
+                    "text-sm " +
+                    (finalResult.is_correct ? "text-green-700" : "text-orange-800")
                   }>
                     {finalResult.feedback}
+                  </p>
+                )}
+                {!finalResult.is_correct && finalResult.correct_display && (
+                  <p className="text-sm text-orange-800">
+                    <b>Correct answer:</b> {finalResult.correct_display}
+                  </p>
+                )}
+                {finalResult.why_wrong && (
+                  <p className="text-sm text-orange-800">
+                    <b>What went wrong:</b> {finalResult.why_wrong}
+                  </p>
+                )}
+                {finalResult.why_right && (
+                  <p className="text-sm text-orange-800">
+                    <b>Why it\'s right:</b> {finalResult.why_right}
+                  </p>
+                )}
+                {finalResult.mistake && (
+                  <p className="text-sm text-orange-800">
+                    <b>Notice:</b> {finalResult.mistake}
+                  </p>
+                )}
+                {finalResult.improved && (
+                  <p className="text-sm text-orange-800">
+                    <b>Better sentence:</b> <i>{finalResult.improved}</i>
+                  </p>
+                )}
+                {finalResult.suggestion && (
+                  <p className="text-sm text-orange-800">
+                    <b>Tip:</b> {finalResult.suggestion}
+                  </p>
+                )}
+                {finalResult.extra_example && (
+                  <p className="text-sm text-orange-800">
+                    <b>Another example:</b> {finalResult.extra_example}
                   </p>
                 )}
               </div>

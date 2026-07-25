@@ -128,46 +128,117 @@ function validate(type: QuestionType, d: GeneratedQuestion): boolean {
   }
 }
 
-// Grade a level-5 written sentence
+// Grade a written sentence with tutor-style feedback
+export interface SentenceGrade {
+  is_correct: boolean;
+  feedback: string;    // one warm summary line
+  mistake?: string;    // what went wrong (if not correct)
+  suggestion?: string; // how to improve
+  improved?: string;   // an improved version of THE STUDENT\'S sentence
+}
 export async function gradeWrittenSentence(
   word: string,
-  sentence: string
-): Promise<{ is_correct: boolean; feedback: string }> {
-  const prompt = `A Novice 2 (beginner) ESL student was asked to write a sentence using the word "${word}".
+  sentence: string,
+  studentName?: string
+): Promise<SentenceGrade> {
+  const namePart = studentName ? `The student\'s name is ${studentName}. ` : "";
+  const prompt = `${namePart}You are a warm, encouraging ESL tutor talking directly to a Novice 2 (beginner) adult student.
 
+The student was asked to write a sentence using the word "${word}".
 Their sentence: "${sentence}"
 
 Judge kindly:
 - is_correct = true if the sentence uses "${word}" with roughly the right meaning. Ignore small grammar and spelling mistakes.
-- is_correct = false only if the word is missing or used with the wrong meaning.
-- feedback: ONE short, warm sentence in very simple English. If wrong, gently show a correct example.
+- is_correct = false only if the word is missing or used with a clearly wrong meaning.
+
+Then help them learn:
+- feedback: ONE warm sentence directly to the student (use "you"), max 15 words.
+- mistake: if wrong, name gently what went wrong in simple English (max 15 words). If correct, leave empty.
+- suggestion: a specific tip to make the sentence even better (max 15 words).
+- improved: rewrite THEIR sentence, keeping their idea but fixing errors and using "${word}" correctly (max 15 words).
+
+Use simple, encouraging language. Address the student directly.
 
 Respond with ONLY this JSON:
-{"is_correct": true, "feedback": "..."}`;
+{"is_correct": true, "feedback": "...", "mistake": "", "suggestion": "...", "improved": "..."}`;
 
   try {
     const response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 200,
+      model: MODEL, max_tokens: 400,
       messages: [{ role: "user", content: prompt }],
     });
     const text = response.content
       .filter((b) => b.type === "text")
-      .map((b) => (b as { text: string }).text)
-      .join("");
+      .map((b) => (b as { text: string }).text).join("");
     const match = text.match(/\{[\s\S]*\}/);
     if (match) {
       const data = JSON.parse(match[0]);
       if (typeof data.is_correct === "boolean" && typeof data.feedback === "string") {
-        return data;
+        return {
+          is_correct: data.is_correct,
+          feedback: data.feedback,
+          mistake: String(data.mistake ?? "") || undefined,
+          suggestion: String(data.suggestion ?? "") || undefined,
+          improved: String(data.improved ?? "") || undefined,
+        };
       }
     }
-  } catch {
-    // fall through
-  }
+  } catch { /* fall through */ }
   return {
     is_correct: sentence.toLowerCase().includes(word.toLowerCase()),
     feedback: `Good try! Keep practicing with "${word}".`,
+  };
+}
+
+// ---------- Rich tutor feedback for any wrong choice-based question ----------
+export interface TutorFeedback {
+  why_wrong: string;      // why their answer was wrong
+  why_right: string;      // why the correct answer is right
+  suggestion: string;     // how to remember
+  extra_example: string;  // fresh example sentence with the word
+}
+export async function tutorFeedback(
+  word: string,
+  studentAnswer: string,
+  correctAnswer: string,
+  studentName?: string
+): Promise<TutorFeedback> {
+  const namePart = studentName ? `Student\'s name: ${studentName}. ` : "";
+  const prompt = `${namePart}You are a warm ESL tutor talking to a Novice 2 (beginner) adult student who just answered a vocabulary question wrong.
+
+Target word: "${word}"
+Correct answer: "${correctAnswer}"
+Student\'s answer: "${studentAnswer}"
+
+Help them understand. Address the student directly with "you". Use very simple English, short sentences (max 12 words each). Be warm and encouraging.
+
+Respond with ONLY this JSON:
+{"why_wrong": "why their answer was wrong in simple terms", "why_right": "why the correct answer fits", "suggestion": "one memory tip", "extra_example": "one new easy sentence using ${word}"}`;
+
+  try {
+    const response = await client.messages.create({
+      model: MODEL, max_tokens: 350,
+      messages: [{ role: "user", content: prompt }],
+    });
+    const text = response.content
+      .filter((b) => b.type === "text")
+      .map((b) => (b as { text: string }).text).join("");
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) {
+      const d = JSON.parse(match[0]);
+      return {
+        why_wrong: String(d.why_wrong ?? ""),
+        why_right: String(d.why_right ?? ""),
+        suggestion: String(d.suggestion ?? ""),
+        extra_example: String(d.extra_example ?? ""),
+      };
+    }
+  } catch { /* fall through */ }
+  return {
+    why_wrong: `Your answer wasn\'t quite right.`,
+    why_right: `The correct answer is "${correctAnswer}".`,
+    suggestion: `Think about what "${word}" means in daily life.`,
+    extra_example: "",
   };
 }
 

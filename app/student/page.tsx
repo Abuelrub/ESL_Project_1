@@ -9,7 +9,7 @@ export default async function StudentHome() {
   const profile = await requireProfile("student");
   const supabase = await createClient();
 
-  const [{ data: enrollments }, { data: progress }, { data: sessions }] = await Promise.all([
+  const [{ data: enrollments }, { data: progress }, { data: sessions }, { data: quizWordRows }] = await Promise.all([
     supabase
       .from("enrollments")
       .select("classes(id, name, courses(id, name, units!units_course_id_fkey(id, name, order_index, part1_name, part2_name, part1_assigned, part2_assigned, words(id, part))))")
@@ -22,7 +22,18 @@ export default async function StudentHome() {
       .from("practice_sessions")
       .select("id")
       .eq("student_id", profile.id),
+    supabase
+      .from("questions")
+      .select("word_id, practice_sessions!inner(mode)")
+      .eq("student_id", profile.id)
+      .eq("practice_sessions.mode", "quiz")
+      .not("answered_at", "is", null),
   ]);
+
+  const quizWordCount = new Map<string, number>();
+  for (const r of (quizWordRows ?? []) as { word_id: string }[]) {
+    quizWordCount.set(r.word_id, (quizWordCount.get(r.word_id) ?? 0) + 1);
+  }
 
   const progressMap = new Map((progress ?? []).map((p) => [p.word_id, p.practice_count]));
   const totalPracticed = progressMap.size;
@@ -121,9 +132,19 @@ export default async function StudentHome() {
                             style={{ width: `${pct}%` }}
                           />
                         </div>
-                        <p className="mb-3 text-xs text-gray-500">
+                        <p className="mb-1 text-xs text-gray-500">
                           {practiced} of {wordIds.length} words practiced
                         </p>
+                        {(() => {
+                          const covered = wordIds.filter((id) => (quizWordCount.get(id) ?? 0) > 0).length;
+                          const totalTests = wordIds.reduce((n, id) => n + (quizWordCount.get(id) ?? 0), 0);
+                          const avg = wordIds.length > 0 ? (totalTests / wordIds.length).toFixed(1) : "0";
+                          return (
+                            <p className="mb-3 text-xs text-emerald-700">
+                              🎯 Quiz coverage: {covered}/{wordIds.length} words · avg {avg}× each
+                            </p>
+                          );
+                        })()}
                         {locked ? (
                           <p className="rounded-xl bg-gray-50 py-3 text-center text-sm text-gray-500">
                             🔒 Your teacher will open this unit soon

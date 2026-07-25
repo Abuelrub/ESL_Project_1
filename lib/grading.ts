@@ -1,17 +1,24 @@
-import { gradeWrittenSentence } from "@/lib/ai";
+import { gradeWrittenSentence, tutorFeedback } from "@/lib/ai";
 
 export interface GradeResult {
   isCorrect: boolean;
   correctDisplay: string;
   answerText: string;
   feedback: string;
+  mistake?: string;
+  suggestion?: string;
+  improved?: string;
+  extraExample?: string;
+  whyRight?: string;
+  whyWrong?: string;
 }
 
 export async function gradeAnswer(
   questionType: string,
   data: Record<string, unknown>,
   answer: unknown,
-  wordText: string
+  wordText: string,
+  studentName?: string
 ): Promise<GradeResult> {
   let isCorrect = false;
   let correctDisplay = "";
@@ -68,12 +75,35 @@ export async function gradeAnswer(
     }
     case "write_sentence": {
       answerText = String(answer).trim();
-      const graded = await gradeWrittenSentence(wordText, answerText);
-      isCorrect = graded.is_correct;
-      feedback = graded.feedback;
-      correctDisplay = "";
-      break;
+      const graded = await gradeWrittenSentence(wordText, answerText, studentName);
+      return {
+        isCorrect: graded.is_correct,
+        correctDisplay: "",
+        answerText,
+        feedback: graded.feedback,
+        mistake: graded.mistake,
+        suggestion: graded.suggestion,
+        improved: graded.improved,
+      };
     }
   }
+
+  // For any non-write question that was WRONG, fetch rich tutor feedback in parallel
+  if (!isCorrect && correctDisplay) {
+    try {
+      const t = await tutorFeedback(wordText, answerText, correctDisplay, studentName);
+      return {
+        isCorrect, correctDisplay, answerText,
+        feedback: feedback || t.why_wrong,
+        whyWrong: t.why_wrong,
+        whyRight: t.why_right,
+        suggestion: t.suggestion,
+        extraExample: t.extra_example,
+      };
+    } catch {
+      // fall through to basic feedback
+    }
+  }
+
   return { isCorrect, correctDisplay, answerText, feedback };
 }

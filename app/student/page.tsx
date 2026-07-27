@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PendingTestsBanner from "@/components/PendingTestsBanner";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { MASTERY_COUNT } from "@/lib/adaptive";
@@ -45,6 +46,8 @@ export default async function StudentHome() {
 
   return (
     <main className="mx-auto max-w-lg p-4 pb-16">
+
+      {/* Header */}
       <header className="mb-5 rounded-3xl bg-gradient-to-r from-indigo-500 via-purple-500 to-purple-600 p-6 text-white shadow-lg shadow-purple-200">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -60,6 +63,7 @@ export default async function StudentHome() {
         </div>
       </header>
 
+      {/* Stats */}
       <div className="mb-5 grid grid-cols-3 gap-3">
         <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-indigo-100 p-4 text-center">
           <p className="text-2xl">🎯</p>
@@ -78,10 +82,13 @@ export default async function StudentHome() {
         </div>
       </div>
 
+      {/* ── Pending tests banner — shows if teacher assigned a test ── */}
+      <PendingTestsBanner studentId={profile.id} />
+
+      {/* Units */}
       {classes.length > 0 ? (
         classes.map((cls) =>
-          (cls!.courses ?? []).map((course) => {
-            return (
+          (cls!.courses ?? []).map((course) => (
             <section key={course.id} className="mb-4">
               <h2 className="mb-2 px-1 text-lg font-bold">📚 {course.name}</h2>
               <div className="grid gap-3">
@@ -97,12 +104,14 @@ export default async function StudentHome() {
                     if (u.part2_assigned) partsAssigned.push(u.part2_name ?? "Part 2");
                     const locked = partsAssigned.length === 0;
                     const isAssigned = partsAssigned.length > 0;
+
                     const wordIds = ((unit.words ?? []) as { id: string; part?: number }[])
                       .filter((w) => {
                         const p = w.part ?? 1;
                         return p === 1 ? u.part1_assigned : u.part2_assigned;
                       })
                       .map((w) => w.id);
+
                     const practiced = wordIds.filter((id) => progressMap.has(id)).length;
                     const masteredHere = wordIds.filter(
                       (id) => (progressMap.get(id) ?? 0) >= MASTERY_COUNT
@@ -126,6 +135,7 @@ export default async function StudentHome() {
                             ⭐ {masteredHere}/{wordIds.length}
                           </span>
                         </div>
+
                         <div className="mb-1 h-2.5 rounded-full bg-gray-100">
                           <div
                             className="h-2.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all"
@@ -135,6 +145,7 @@ export default async function StudentHome() {
                         <p className="mb-1 text-xs text-gray-500">
                           {practiced} of {wordIds.length} words practiced
                         </p>
+
                         {(() => {
                           const covered = wordIds.filter((id) => (quizWordCount.get(id) ?? 0) > 0).length;
                           const totalTests = wordIds.reduce((n, id) => n + (quizWordCount.get(id) ?? 0), 0);
@@ -145,6 +156,7 @@ export default async function StudentHome() {
                             </p>
                           );
                         })()}
+
                         {locked ? (
                           <p className="rounded-xl bg-gray-50 py-3 text-center text-sm text-gray-500">
                             🔒 Your teacher will open this unit soon
@@ -159,6 +171,10 @@ export default async function StudentHome() {
                               className="block rounded-xl border-2 border-brand-500 bg-white py-3 text-center font-semibold text-brand-600 transition active:scale-[0.98]">
                               🎯 Quiz
                             </Link>
+                            <Link href={`/student/writing/${unit.id}`}
+                              className="col-span-2 block rounded-xl border-2 border-purple-400 bg-purple-50 py-3 text-center font-semibold text-purple-700 transition active:scale-[0.98]">
+                              ✍️ Writing
+                            </Link>
                           </div>
                         ) : (
                           <p className="rounded-xl bg-gray-50 py-3 text-center text-sm text-gray-500">
@@ -170,7 +186,7 @@ export default async function StudentHome() {
                   })}
               </div>
             </section>
-          );})
+          ))
         )
       ) : (
         <div className="rounded-2xl border border-gray-200 bg-white p-6">

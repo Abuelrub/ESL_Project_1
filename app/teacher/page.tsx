@@ -109,6 +109,30 @@ export default async function TeacherHome({
         <span className="text-gray-400">&rarr;</span>
       </Link>
 
+      <Link href="/teacher/evaluation"
+        className="mb-3 flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-brand-500 hover:shadow">
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 text-xl">📋</span>
+          <div>
+            <p className="text-lg font-bold">Full evaluation</p>
+            <p className="text-sm text-gray-500">Per student · per word · quiz + practice + writing</p>
+          </div>
+        </div>
+        <span className="text-gray-400">→</span>
+      </Link>
+      
+      <Link href="/teacher/tests"
+        className="mb-3 flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-brand-500 hover:shadow">
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 text-xl">📋</span>
+          <div>
+            <p className="text-lg font-bold">Tests</p>
+            <p className="text-sm text-gray-500">Pre-test, post-test, custom assessments</p>
+          </div>
+        </div>
+        <span className="text-gray-400">→</span>
+      </Link>
+
       {classes && classes.length > 0 ? (
         classes.map((cls) => {
           const studentCount = (cls.enrollments as { count: number }[] | null)?.[0]?.count ?? 0;

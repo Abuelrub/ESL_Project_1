@@ -208,7 +208,7 @@ export default async function DesignPage({
               difficulty: q.difficulty,
               question_data: q.question_data as Record<string, unknown>,
               word: (Array.isArray(q.words) ? q.words[0] : q.words) as { text: string } | null,
-              teacher_edited: q.teacher_edited,
+              teacher_edited: (q as Record<string, unknown>)["teacher_edited"] as boolean | undefined,
             }))}
           />
         </section>

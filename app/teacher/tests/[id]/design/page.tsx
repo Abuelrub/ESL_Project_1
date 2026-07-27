@@ -66,7 +66,7 @@ export default async function DesignPage({
 
   const { data: questions } = await admin
     .from("test_questions")
-    .select("id, question_type, difficulty, question_data, word_id, words(text)")
+    .select("id, question_type, difficulty, question_data, word_id, teacher_edited, words(text)")
     .eq("test_id", id)
     .order("order_index");
 

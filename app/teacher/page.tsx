@@ -85,6 +85,18 @@ export default async function TeacherHome({
         ))}
       </div>
 
+      <Link href="/teacher/progress"
+        className="mb-3 flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-brand-500 hover:shadow">
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-xl">📊</span>
+          <div>
+            <p className="text-lg font-bold">Unit Progress Matrix</p>
+            <p className="text-sm text-gray-500">All students × all words — who practiced what</p>
+          </div>
+        </div>
+        <span className="text-gray-400">→</span>
+      </Link>
+
       <Link href="/teacher/analytics"
         className="mb-3 flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-brand-500 hover:shadow">
         <div className="flex items-center gap-3">

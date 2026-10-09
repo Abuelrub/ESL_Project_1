@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import DeleteWordButton from "@/components/DeleteWordButton";
 import {
   bulkAddWords, createUnit, createWord, deleteUnit, deleteWord,
   moveWordPart, renamePart, renameUnit, toggleWordDifficulty,
@@ -230,13 +231,11 @@ export default async function CourseWorkspace({
                                 ⇄
                               </button>
                             </form>
-                            <form action={deleteWord} className="inline">
-                              <input type="hidden" name="course_id" value={course.id} />
-                              <input type="hidden" name="word_id" value={w.id} />
-                              <button className="px-1 text-gray-400 hover:text-red-600" title="Delete word">
-                                ✕
-                              </button>
-                            </form>
+                            <DeleteWordButton
+                              wordId={w.id}
+                              wordText={w.text}
+                              courseId={course.id}
+                            />
                           </span>
                         ))}
                       </div>

@@ -37,7 +37,7 @@ export default async function StudentHome() {
   }
 
   const progressMap = new Map((progress ?? []).map((p) => [p.word_id, p.practice_count]));
-  const totalPracticed = progressMap.size;
+  const totalPracticed = [...progressMap.values()].filter((c) => c > 0).length;
   const mastered = (progress ?? []).filter((p) => p.practice_count >= MASTERY_COUNT).length;
 
   const classes = (enrollments ?? [])
@@ -112,7 +112,7 @@ export default async function StudentHome() {
                       })
                       .map((w) => w.id);
 
-                    const practiced = wordIds.filter((id) => progressMap.has(id)).length;
+                    const practiced = wordIds.filter((id) => (progressMap.get(id) ?? 0) > 0).length;
                     const masteredHere = wordIds.filter(
                       (id) => (progressMap.get(id) ?? 0) >= MASTERY_COUNT
                     ).length;

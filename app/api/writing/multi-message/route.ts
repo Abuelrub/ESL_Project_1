@@ -89,7 +89,7 @@ where word_results shows true/false for each of: ${words.map(w => `"${w}"`).join
   const newTurn = turn + 1;
   const isDone = newTurn > SENTENCES_PER_SESSION;
 
-  // Save a sentence record for EACH word in the multi-word session
+  // Save writing sentences
   await Promise.all(
     session_ids.map((sid, i) =>
       admin.from("writing_sentences").insert({
@@ -109,7 +109,7 @@ where word_results shows true/false for each of: ${words.map(w => `"${w}"`).join
     )
   );
 
-  // Update session counters for each word
+  // Update session counters
   await Promise.all(
     session_ids.map((sid, i) => {
       const wordCorrect = scores.word_results[words[i]] ?? scores.is_correct;
@@ -120,6 +120,47 @@ where word_results shows true/false for each of: ${words.map(w => `"${w}"`).join
       }).eq("id", sid);
     })
   );
+
+  // Update word_progress for each word — sequential to avoid race conditions
+  for (let i = 0; i < word_ids.length; i++) {
+    const wordId    = word_ids[i];
+    const wordText  = words[i];
+    const wordCorrect = scores.word_results[wordText] ?? scores.is_correct;
+
+    // Load existing
+    const { data: existing, error: fetchErr } = await admin
+      .from("word_progress")
+      .select("practice_count, correct_count, current_level, writing_attempts, writing_correct")
+      .eq("student_id", user.id)
+      .eq("word_id", wordId)
+      .maybeSingle();
+
+    if (fetchErr) {
+      continue;
+    }
+
+    const newPracticeCount   = (existing?.practice_count  ?? 0) + 1;
+    const newCorrectCount    = (existing?.correct_count   ?? 0) + (wordCorrect ? 1 : 0);
+    const newWritingAttempts = (existing?.writing_attempts ?? 0) + 1;
+    const newWritingCorrect  = (existing?.writing_correct  ?? 0) + (wordCorrect ? 1 : 0);
+    const currentLevel       = existing?.current_level ?? 1;
+    const newLevel           = wordCorrect ? Math.min(5, currentLevel + 1) : Math.max(1, currentLevel);
+
+    const { error: upsertErr } = await admin.from("word_progress").upsert({
+      student_id:       user.id,
+      word_id:          wordId,
+      practice_count:   newPracticeCount,
+      correct_count:    newCorrectCount,
+      current_level:    newLevel,
+      writing_attempts: newWritingAttempts,
+      writing_correct:  newWritingCorrect,
+      last_practiced:   new Date().toISOString(),
+    }, { onConflict: "student_id,word_id" });
+
+    if (upsertErr) {
+    } else {
+    }
+  }
 
   return NextResponse.json({
     ai_message: displayText,
